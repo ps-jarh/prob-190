@@ -1,0 +1,13 @@
+// ABAC + RBAC policy engine. First matching rule decides; default deny.
+const RK={Draft:0,'Under Review':1,Approved:2,Signed:3,Archived:4},OFF=['Investigating Officer','Supervising Officer'];
+const RULES=[
+['P-01','System Admin has no access to case document content.',c=>c.user.role=='System Admin'?[0,'Admins run the platform, not case content']:0],
+['P-02','Auditor may only VERIFY documents and read audit data.',c=>c.user.role=='Auditor'?(c.action=='verify'?[1,'Verification allowed']:[0,'Auditor cannot '+c.action+' content']):0],
+['P-03','Users not assigned to the case are denied everything.',c=>c.assigned?0:[0,'Not assigned to '+c.doc.case_id]],
+['P-04','Victim-Sensitive: Investigating/Supervising Officer full access; Court Clerk gets a redacted VIEW only when state >= Approved; all others denied.',c=>c.doc.classification!='Victim-Sensitive'?0:OFF.includes(c.user.role)?[1,'Officer: full access']:(c.user.role=='Court Clerk'&&c.action=='view'&&RK[c.state]>=2)?[1,'Redacted view for clerk']:[0,'Victim identity protection']],
+['P-05','Prosecutor may VIEW/DOWNLOAD/VERIFY documents (incl. Confidential) only in assigned cases and only when state >= Approved.',c=>c.user.role!='Prosecutor'?0:(['view','download','verify'].includes(c.action)&&RK[c.state]>=2)?[1,'Assigned, state >= Approved']:[0,'State is '+c.state+' (needs >= Approved) or action not allowed']],
+['P-06','Forensic Analyst may VIEW/DOWNLOAD/EDIT forensic reports and VIEW Public/Restricted documents; other Confidential documents are denied.',c=>c.user.role!='Forensic Analyst'?0:(c.doc.kind=='forensic'&&['view','download','edit','verify'].includes(c.action))||(c.doc.classification!='Confidential'&&['view','verify'].includes(c.action))?[1,'Forensic scope']:[0,'Outside forensic scope']],
+['P-07','Court Clerk may VIEW Public/Restricted documents with state >= Approved.',c=>c.user.role!='Court Clerk'?0:(c.doc.classification!='Confidential'&&['view','verify'].includes(c.action)&&RK[c.state]>=2)?[1,'Clerk scope']:[0,'Confidential or state < Approved']],
+['P-08','Investigating Officer: view/download/edit/share/verify/sign. Supervising Officer: same plus APPROVE (maker-checker: IO cannot approve).',c=>c.action=='approve'&&c.user.role!='Supervising Officer'?[0,'Only a Supervising Officer approves']:OFF.includes(c.user.role)?[1,'Case officer']:0]];
+function check(ctx){for(const[policy,text,f]of RULES){const x=f(ctx);if(x)return{allow:!!x[0],policy,text,reason:x[1]}}return{allow:false,policy:'P-99',text:'Default deny',reason:'No policy grants this'}}
+module.exports={check,RULES:RULES.map(r=>({id:r[0],text:r[1]})),RK};

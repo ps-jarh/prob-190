@@ -1,0 +1,13 @@
+create table if not exists users(id text primary key,name text,role text,org text);
+create table if not exists cases(id text primary key,title text,fir_no text,cnr_no text,io_id text);
+create table if not exists case_assignments(case_id text,user_id text);
+create table if not exists documents(id text primary key,case_id text,title text,classification text,kind text);
+create table if not exists document_versions(id serial primary key,doc_id text,version_no int,file_enc text,sha256 text,state text,is_authoritative boolean,created_by text,reason text,text_content text,approved_by text,created_at text);
+create table if not exists signatures(version_id int,signer text,signature text,public_key text,algorithm text);
+create table if not exists timestamps(version_id int,token text,time text);
+create table if not exists audit_events(id serial primary key,time text,actor text,action text,target text,decision text,details text,case_id text,prev_hash text,hash text);
+create table if not exists merkle_batches(id serial primary key,root text,first_event int,last_event int,block_no int);
+create table if not exists ledger_blocks(block_no int primary key,root text,prev_block_hash text,endorsements text,time text,block_hash text);
+create table if not exists share_capsules(id serial primary key,recipient text,version_id int,permission text,expires_at text,watermark_id text,watermark_text text,revoked boolean,created_by text);
+create table if not exists ai_queries(id serial primary key,user_id text,query text,authorized_doc_ids text,hidden_count int,time text);
+create table if not exists settings(key text primary key,value text);
